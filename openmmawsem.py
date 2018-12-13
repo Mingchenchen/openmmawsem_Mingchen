@@ -777,7 +777,7 @@ class OpenMMAWSEMSystem:
         ramaSS.setForceGroup(15)
         return ramaSS
 
-    def direct_term(self, k_direct=4.184):
+    def direct_term(self, k_direct=4.184*1.5):
         k_direct *= self.k_awsem
         # print(self.ca, self.cb)
         # print(self.bonds)
@@ -902,7 +902,7 @@ class OpenMMAWSEMSystem:
         return burial
 
 
-    def mediated_term(self, k_mediated=4.184):
+    def mediated_term(self, k_mediated=4.184*1.5):
         k_mediated *= self.k_awsem
         # print(self.nres)  # print 181 for 2xov
         # print(self.resi)  # print the rsidues index for each atom
@@ -1177,7 +1177,7 @@ class OpenMMAWSEMSystem:
 
 
     def fragment_memory_term(self, k_fm=0.04184, frag_location_pre="./",
-                        min_seq_sep=3, max_seq_sep=9, fm_well_width=0.1):
+                        min_seq_sep=2, max_seq_sep=9, fm_well_width=0.1):
         # 0.8368 = 0.01 * 4.184 # in kJ/mol, converted from default value in LAMMPS AWSEM
         k_fm *= self.k_awsem
         frag_table_rmin = 0
@@ -1579,23 +1579,13 @@ class OpenMMAWSEMSystem:
     def apply_beta_term_1(self):
         print("beta_1 term ON");
         nres, n, h, ca, c, o, cb, res_type = self.nres, self.n, self.h, self.ca, self.c, self.o, self.cb, self.res_type
-
-
-        # add beta potential
         # setup parameters
         k_beta = 0.25*4.184
         lambda_1 = [0]*nres*nres
-        #lambda_2 = [0]*nres*nres
-        #lambda_3 = [0]*nres*nres
         for i in range(1,nres-1):
             for j in range(1,nres-1):
-                #print(i,j)
                 if abs(j-i) < 4: continue
                 lambda_1[i+j*nres] = self.lambda_coefficient(i,j,1)
-
-                #lambda_2[i+j*nres] = 1 #lambda_coefficient(i,j,2)
-                #lambda_3[i+j*nres] = 1 #lambda_coefficient(i,j,3)
-        #print(lambda_1)
         r_ON = .298
         sigma_NO = .068
         r_OH = .206
@@ -1610,15 +1600,10 @@ class OpenMMAWSEMSystem:
         nu_i = "0.5*(1+tanh(eta_beta_1*(r_CAim2_CAip2-r_HB_c)))"
         nu_j = "0.5*(1+tanh(eta_beta_2*(r_CAjm2_CAjp2-r_HB_c)))"
 
-        # Oi Nj Hj CAi-2 CAi+2 CAj-2 CAj+2
-        # 1  2  3  4     5     6     7
         beta_string_1 = "-k_beta*lambda_1(index_i,index_j)*theta_ij*nu_i*nu_j;theta_ij=%s;r_Oi_Nj=distance(p1,p2);r_Oi_Hj=distance(p1,p3);\
                         nu_i=%s;nu_j=%s;r_CAim2_CAip2=distance(p4,p5);r_CAjm2_CAjp2=distance(p6,p7)" % (theta_ij, nu_i, nu_j)
 
         beta_1 = CustomCompoundBondForce(7, beta_string_1)
-        #beta_2 = CustomCompoundBondForce(10, beta_string_2)
-        #beta_3 = CustomCompoundBondForce(10, beta_string_3)
-        # add parameters to force
         beta_1.addGlobalParameter("k_beta", k_beta)
         beta_1.addGlobalParameter("r_ON", r_ON)
         beta_1.addGlobalParameter("sigma_NO", sigma_NO)
@@ -1630,8 +1615,6 @@ class OpenMMAWSEMSystem:
         beta_1.addPerBondParameter("index_i")
         beta_1.addPerBondParameter("index_j")
         beta_1.addTabulatedFunction("lambda_1", Discrete2DFunction(nres, nres, lambda_1))
-        #beta_2.addTabulatedFunction("lambda_2", Discrete2DFunction(nres, nres, lambda_2))
-        #beta_3.addTabulatedFunction("lambda_3", Discrete2DFunction(nres, nres, lambda_3))
 
         for i in range(nres):
             for j in range(i, nres):
@@ -1640,32 +1623,18 @@ class OpenMMAWSEMSystem:
                    continue
                 if not res_type[j] == "IPR":
                     beta_1.addBond([o[i], n[j], h[j], ca[i-2], ca[i+2], ca[j-2], ca[j+2]], [i, j])
-                #if not res_type[i] == "IPR" and not res_type[j] == "IPR":
-                #    beta_2.addBond([o[i], n[j], h[j], o[j], n[i], h[i], ca[i-2], ca[i+2], ca[j-2], ca[j+2]], [i, j])
-                #if not res_type[i+2] == "IPR" and not res_type[j] == "IPR":
-                #    beta_3.addBond([o[i], n[j], h[j], o[j], n[i+2], h[i+2], ca[i-2], ca[i+2], ca[j-2], ca[j+2]], [i, j])
-
         beta_1.setForceGroup(23)
-        #beta_2.setForceGroup(24)
-        #beta_3.setForceGroup(25)
         return beta_1
 
     def apply_beta_term_2(self):
         print("beta_2 term ON");
         nres, n, h, ca, c, o, cb, res_type = self.nres, self.n, self.h, self.ca, self.c, self.o, self.cb, self.res_type
-        # add beta potential
-        # setup parameters
         k_beta = 0.25*4.184
-        #lambda_1 = [0]*nres*nres
         lambda_2 = [0]*nres*nres
-        #lambda_3 = [0]*nres*nres
         for i in range(1,nres-1):
             for j in range(1,nres-1):
                 if abs(j-i) < 4: continue
-                #lambda_1[i+j*nres] = 1 #lambda_coefficient(i,j,1)
                 lambda_2[i+j*nres] = self.lambda_coefficient(i,j,2)
-                #lambda_3[i+j*nres] = 1 #lambda_coefficient(i,j,3)
-
         r_ON = .298
         sigma_NO = .068
         r_OH = .206
@@ -1679,31 +1648,12 @@ class OpenMMAWSEMSystem:
         theta_jip2 = "exp(-(r_Oj_Nip2-r_ON)^2/(2*sigma_NO^2)-(r_Oj_Hip2-r_OH)^2/(2*sigma_HO^2))"
         nu_i = "0.5*(1+tanh(eta_beta_1*(r_CAim2_CAip2-r_HB_c)))"
         nu_j = "0.5*(1+tanh(eta_beta_2*(r_CAjm2_CAjp2-r_HB_c)))"
-
-        # Oi Nj Hj CAi-2 CAi+2 CAj-2 CAj+2
-        # 1  2  3  4     5     6     7
-        #beta_string_1 = "-k_beta*lambda_1(index_i,index_j)*theta_ij*nu_i*nu_j;theta_ij=%s;r_Oi_Nj=distance(p1,p2);r_Oi_Hj=distance(p1,p3);\
-        #                nu_i=%s;nu_j=%s;r_CAim2_CAip2=distance(p4,p5);r_CAjm2_CAjp2=distance(p6,p7)" % (theta_ij, nu_i, nu_j)
-
-        # Oi Nj Hj Oj Ni Hi CAi-2 CAi+2 CAj-2 CAj+2
-        # 1  2  3  4  5  6  7     8     9     10
         beta_string_2 = "-k_beta*lambda_2(index_i,index_j)*theta_ij*theta_ji*nu_i*nu_j;\
                         theta_ij=%s;r_Oi_Nj=distance(p1,p2);r_Oi_Hj=distance(p1,p3);\
                         theta_ji=%s;r_Oj_Ni=distance(p4,p5);r_Oj_Hi=distance(p4,p6);\
                         nu_i=%s;nu_j=%s;r_CAim2_CAip2=distance(p7,p8);r_CAjm2_CAjp2=distance(p9,p10)" % (theta_ij, theta_ji, nu_i, nu_j)
 
-        # Oi Nj Hj Oj Ni+2 Hi+2 CAi-2 CAi+2 CAj-2 CAj+2
-        # 1  2  3  4  5    6    7     8     9     10
-        #beta_string_3 = "-k_beta*lambda_3(index_i,index_j)*theta_ij*theta_jip2*nu_i*nu_j;\
-        #                theta_ij=%s;r_Oi_Nj=distance(p1,p2);r_Oi_Hj=distance(p1,p3);\
-        #                theta_ji=%s;r_Oj_Ni=distance(p4,p5);r_Oj_Hi=distance(p4,p6);\
-        #                theta_jip2=%s;r_Oj_Nip2=distance(p4,p5);r_Oj_Hip2=distance(p4,p6);\
-        #                nu_i=%s;nu_j=%s;r_CAim2_CAip2=distance(p7,p8);r_CAjm2_CAjp2=distance(p9,p10)" % (theta_ij, theta_ji, theta_jip2, nu_i, nu_j)
-
-        #beta_1 = CustomCompoundBondForce(7, beta_string_1)
         beta_2 = CustomCompoundBondForce(10, beta_string_2)
-        #beta_3 = CustomCompoundBondForce(10, beta_string_3)
-        # add parameters to force
         beta_2.addGlobalParameter("k_beta", k_beta)
         beta_2.addGlobalParameter("r_ON", r_ON)
         beta_2.addGlobalParameter("sigma_NO", sigma_NO)
@@ -1715,32 +1665,21 @@ class OpenMMAWSEMSystem:
         beta_2.addPerBondParameter("index_i")
         beta_2.addPerBondParameter("index_j")
         beta_2.addTabulatedFunction("lambda_2", Discrete2DFunction(nres, nres, lambda_2))
-
-
         for i in range(nres):
             for j in range(i, nres):
                 if i-2 < 0 or i+2 >= nres or \
                    j-2 < 0 or j+2 >= nres:
                    continue
-                #if not res_type[j] == "IPR":
-                #    beta_1.addBond([o[i], n[j], h[j], ca[i-2], ca[i+2], ca[j-2], ca[j+2]], [i, j])
                 if not res_type[i] == "IPR" and not res_type[j] == "IPR":
                     beta_2.addBond([o[i], n[j], h[j], o[j], n[i], h[i], ca[i-2], ca[i+2], ca[j-2], ca[j+2]], [i, j])
-                #if not res_type[i+2] == "IPR" and not res_type[j] == "IPR":
-                #    beta_3.addBond([o[i], n[j], h[j], o[j], n[i+2], h[i+2], ca[i-2], ca[i+2], ca[j-2], ca[j+2]], [i, j])
 
-
-        #beta_1.setForceGroup(23)
         beta_2.setForceGroup(24)
-        #beta_3.setForceGroup(25)
         return beta_2
 
 
     def apply_beta_term_3(self):
         print("beta_3 term ON");
         nres, n, h, ca, c, o, cb, res_type = self.nres, self.n, self.h, self.ca, self.c, self.o, self.cb, self.res_type
-        # add beta potential
-        # setup parameters
         k_beta = 0.25*4.184
         lambda_3 = [0]*nres*nres
         for i in range(1,nres-1):
@@ -1761,21 +1700,6 @@ class OpenMMAWSEMSystem:
         theta_jip2 = "exp(-(r_Oj_Nip2-r_ON)^2/(2*sigma_NO^2)-(r_Oj_Hip2-r_OH)^2/(2*sigma_HO^2))"
         nu_i = "0.5*(1+tanh(eta_beta_1*(r_CAim2_CAip2-r_HB_c)))"
         nu_j = "0.5*(1+tanh(eta_beta_2*(r_CAjm2_CAjp2-r_HB_c)))"
-
-        # Oi Nj Hj CAi-2 CAi+2 CAj-2 CAj+2
-        # 1  2  3  4     5     6     7
-        #beta_string_1 = "-k_beta*lambda_1(index_i,index_j)*theta_ij*nu_i*nu_j;theta_ij=%s;r_Oi_Nj=distance(p1,p2);r_Oi_Hj=distance(p1,p3);\
-        #                nu_i=%s;nu_j=%s;r_CAim2_CAip2=distance(p4,p5);r_CAjm2_CAjp2=distance(p6,p7)" % (theta_ij, nu_i, nu_j)
-
-        # Oi Nj Hj Oj Ni Hi CAi-2 CAi+2 CAj-2 CAj+2
-        # 1  2  3  4  5  6  7     8     9     10
-        #beta_string_2 = "-k_beta*lambda_2(index_i,index_j)*theta_ij*theta_ji*nu_i*nu_j;\
-        #                theta_ij=%s;r_Oi_Nj=distance(p1,p2);r_Oi_Hj=distance(p1,p3);\
-        #                theta_ji=%s;r_Oj_Ni=distance(p4,p5);r_Oj_Hi=distance(p4,p6);\
-        #                nu_i=%s;nu_j=%s;r_CAim2_CAip2=distance(p7,p8);r_CAjm2_CAjp2=distance(p9,p10)" % (theta_ij, theta_ji, nu_i, nu_j)
-
-        # Oi Nj Hj Oj Ni+2 Hi+2 CAi-2 CAi+2 CAj-2 CAj+2
-        # 1  2  3  4  5    6    7     8     9     10
         beta_string_3 = "-k_beta*lambda_3(index_i,index_j)*theta_ij*theta_jip2*nu_i*nu_j;\
                         theta_ij=%s;r_Oi_Nj=distance(p1,p2);r_Oi_Hj=distance(p1,p3);\
                         theta_ji=%s;r_Oj_Ni=distance(p4,p5);r_Oj_Hi=distance(p4,p6);\
@@ -1783,7 +1707,6 @@ class OpenMMAWSEMSystem:
                         nu_i=%s;nu_j=%s;r_CAim2_CAip2=distance(p7,p8);r_CAjm2_CAjp2=distance(p9,p10)" % (theta_ij, theta_ji, theta_jip2, nu_i, nu_j)
 
         beta_3 = CustomCompoundBondForce(10, beta_string_3)
-        # add parameters to force
         beta_3.addGlobalParameter("k_beta", k_beta)
         beta_3.addGlobalParameter("r_ON", r_ON)
         beta_3.addGlobalParameter("sigma_NO", sigma_NO)
@@ -1801,24 +1724,15 @@ class OpenMMAWSEMSystem:
                 if i-2 < 0 or i+2 >= nres or \
                    j-2 < 0 or j+2 >= nres:
                    continue
-                #if not res_type[j] == "IPR":
-                #    beta_1.addBond([o[i], n[j], h[j], ca[i-2], ca[i+2], ca[j-2], ca[j+2]], [i, j])
-                #if not res_type[i] == "IPR" and not res_type[j] == "IPR":
-                #    beta_2.addBond([o[i], n[j], h[j], o[j], n[i], h[i], ca[i-2], ca[i+2], ca[j-2], ca[j+2]], [i, j])
                 if not res_type[i+2] == "IPR" and not res_type[j] == "IPR":
                     beta_3.addBond([o[i], n[j], h[j], o[j], n[i+2], h[i+2], ca[i-2], ca[i+2], ca[j-2], ca[j+2]], [i, j])
-
-
-        #beta_1.setForceGroup(23)
-        #beta_2.setForceGroup(24)
-        beta_3.setForceGroup(25)
+            beta_3.setForceGroup(25)
         return beta_3
+
     def pap_term(self):
         print("pap term ON");
         nres, ca = self.nres, self.ca
-
         pap_function = "-k_pap*gamma*0.5*(1+tanh(70*(0.8-distance(p1,p2))))*0.5*(1+tanh(70*(0.8-distance(p3,p4))))"
-        #pap_function = "1+ tanh(70*(1.5-distance(p1,p2))) + gamma"
         # setup parameters
         k_pap = 0.5*4.184
         r0 = 2.0 # nm
@@ -1832,33 +1746,15 @@ class OpenMMAWSEMSystem:
         pap.addGlobalParameter("r0", r0)
         pap.addGlobalParameter("eta_pap", eta_pap)
         pap.addPerBondParameter("gamma")
-        #count = 0;
+
         for i in range(nres):
             for j in range(nres):
-                # anti-parallel hairpin for i from 1 to N-13 and j from i+13 to min(i+16,N)
-                # CAi CAj CAi+4 CAj-4
-                # 1   2   3     4
                 if i <= nres-13 and j >= i+13 and j <= min(i+16,nres):
                     pap.addBond([ca[i], ca[j], ca[i+4], ca[j-4]], [gamma_aph])
-                    #count = count + 1
-                    #print([ca[i], ca[j], ca[i+4], ca[j-4]], [gamma_aph])
-                # anti-parallel for i from 1 to N-17 and j from i+17 to N
-                # CAi CAj CAi+4 CAj-4
-                # 1   2   3     4
                 if i <= nres-17 and j >= i+17 and j <= nres:
                     pap.addBond([ca[i], ca[j], ca[i+4], ca[j-4]], [gamma_ap])
-                    #count = count + 1;
-                    #print([ca[i], ca[j], ca[i+4], ca[j-4]], [gamma_ap])
-                # parallel for i from 1 to N-13 and j from i+9 to N-4
-                # CAi CAj CAi+4 CAj+4
-                # 1   2   3     4
                 if i <= nres-13 and j >= i+9 and j < nres-4:
-                    #print([i, j, i+4, j+4])
-                    #print([i, j, i+4, j+4, ca[i], ca[j], ca[i+4], ca[j+4]], [gamma_p])
                     pap.addBond([ca[i], ca[j], ca[i+4], ca[j+4]], [gamma_p])
-                    #count = count + 1;
-
-        #print(count)
         pap.setForceGroup(26)
         return pap
 
@@ -1973,6 +1869,38 @@ class OpenMMAWSEMSystem:
         er.setForceGroup(21)
         return er
 
+    def debye_huckel_term(self, k_dh = 4.15*4.184):
+        print("Debye Huckel term is ON")
+        k_dh *= self.k_awsem*0.1;
+        k_screening = 1.0;
+        screening_length = 1.0; #(in the unit of nanometers)
+
+        dh = CustomBondForce("k_dh*charge_i*charge_j/r*exp(-k_screening*r/screening_length)")
+        dh.addGlobalParameter("k_dh", k_dh)
+        dh.addGlobalParameter("k_screening", k_screening)
+        dh.addGlobalParameter("screening_length", screening_length)
+        dh.addPerBondParameter("charge_i");
+        dh.addPerBondParameter("charge_j")
+        structure_interactions_dh = []
+        for i in range(self.nres):
+            for j in range(i+1,self.nres):
+                charge_i = 0.0;
+                charge_j = 0.0;
+                if self.seq[i] == "R" or self.seq[i]=="K":
+                    charge_i = 1.0;
+                if self.seq[i] == "D" or self.seq[i]=="E":
+                    charge_i = -1.0;
+                if self.seq[j] == "R" or self.seq[j]=="K":
+                    charge_j = 1.0;
+                if self.seq[j] == "D" or self.seq[j]=="E":
+                    charge_j = -1.0;
+                if charge_i*charge_j!=0.0:
+                    structure_interactions_dh.append([self.cb[i], self.cb[j], [charge_i, charge_j]]);
+                    #print([self.seq[i], self.seq[j],self.cb[i], self.cb[j], [charge_i, charge_j]])
+        for structure_interaction_dh in structure_interactions_dh:
+            dh.addBond(*structure_interaction_dh)
+        dh.setForceGroup(27)
+        return dh
 
 
     def qbias_term(self, q0, reference_pdb_file, reference_chain_name, k_qbias=10000, qbias_min_seq_sep=3, qbias_max_seq_sep=np.inf, qbias_contact_threshold=0.8*nanometers):
